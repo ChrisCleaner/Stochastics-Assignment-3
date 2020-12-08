@@ -12,11 +12,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
+
+
 import math
-import os
 
 
-loc = os.getcwd().replace("\\","/") + "/predator-prey-data.csv"
+loc = r'C:\Users\Gebruiker\OneDrive\Computational_Science\Year1_Semester1_Block2\Stochastic_Simulations\Assignment3\predator-prey-data.csv'
+df = pd.read_csv(loc)
+    
+pred = (df['x'])
+prey = (df['y'])
+    
 
 def main():
     df = pd.read_csv(loc)
@@ -32,42 +38,55 @@ def main():
     beta = 0.25
     
     t = list(df['t'])
-    y0 = [df['y'][0], df['x'][0]]
     
     
-    alpha = 0.9
-    beta = 0.7
-    gamma = 0.9
-    delta = 0.5
+    y0 = [pred[0], prey[0]]
     
     
+    alpha = float(0.8)
+    beta = float( 0.5)
+    gamma = float(1.2)
+    delta = float(1.0)
+    
+        
+    alpha = float(0.7)
+    beta = float( 0.5)
+    gamma = float(1.4)
+    delta = float(1.0)
+    
+    print('y0', y0)
+    sol = odeint(pend, y0, t, args=(alpha, beta, gamma, delta))
 
-    
+    preys = sol[:,1]
+    preds = sol[:,0]
 
     parameters = [alpha, beta, gamma, delta]
+    
+    plt.plot(t, preds, label ='predator')
+    plt.plot(t, preys, label = 'prey')
+    plt.legend()
 
-                  
-    """
-    parameters['alpha'] = 0.5
-    parameters['beta'] = 0.1
-    parameters['gamma'] = 0.4
-    parameters['delta'] = 0.09]
-    """
+    plt.show()
+                 
+   
     parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey)
 
     sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
     
     
-    preds = sol[:,1]
-    preys = sol[:,0]
-    
+    preys = sol[:,1]
+    preds = sol[:,0]
+
     
     
     plt.plot(t, preds, label ='predator')
     plt.plot(t, preys, label = 'prey')
     plt.legend()
+    plt.show()
+    print(parameters)
     
    
+    
 
 def get_cost(parameters, y0, t, pred, prey):
     """
@@ -87,13 +106,25 @@ def get_cost(parameters, y0, t, pred, prey):
     
     
     sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
-    preds = sol[:,1]
-    preys = sol[:,0]
     
-    mse1 =  (sum((pred - preds)**2))
-    mse2 = (sum((prey - preys)**2))
+    
+    preds = sol[:,0]
+    preys = sol[:,1]
+    
+    """
+    plt.plot(t, preds, label ='predator')
+    plt.plot(t, preys, label = 'prey')
+    plt.legend()
+
+    plt.show()
+    """            
+    
+
+    mse1 =  (sum(abs(pred - preds)))
+    mse2 = (sum(abs(prey - preys)))
     
     return mse1 + mse2
+
 
 def get_neighbors(parameters):
     """
@@ -108,26 +139,22 @@ def get_neighbors(parameters):
 
     """
     neighbors= []
-    value = 0.005
-    
-#    neighbor = parameters.copy()
-#    neighbor[0] =  neighbor[0] + (random.uniform(-value,value))
-#    neighbor[1] =  neighbor[1] + (random.uniform(-value,value))
-#    neighbor[2] =  neighbor[2] + (random.uniform(-value,value))
-#    neighbor[3] =  neighbor[3] + (random.uniform(-value,value))
-#    neighbors.append(neighbor)
-    
-    
-    #old code
-    for i in range(10):
-        neighbor = parameters.copy()
-        neighbor[0] =  neighbor[0] + (random.uniform(-value,value) * i)
-        neighbor[1] =  neighbor[1] + (random.uniform(-value,value) * i)
-        neighbor[2] =  neighbor[2] + (random.uniform(-value,value) * i)
-        neighbor[3] =  neighbor[3] + (random.uniform(-value,value) * i)
-        neighbors.append(neighbor)
+    value = float(0.01)
 
     
+    for i in range(len(parameters)*2):
+        new_p = np.copy(parameters)
+        
+        if i < len(parameters):
+            new_p[i] = new_p[i] + value
+        else: 
+            if new_p[i-len(parameters)] >= value:
+                new_p[i-len(parameters)] = new_p[i-len(parameters)] - value
+            
+            
+     
+        neighbors.append(new_p)
+        
         
     return neighbors
     
@@ -146,13 +173,17 @@ def pend(pred_prey,t, alpha, beta, gamma, delta):
     vector dydt with : CHange in preys dx, change in predators dy 
 
     """
+    #print(pred_prey)
+    
 
-    x, y = pred_prey
+    x = pred_prey[0]
+    y = pred_prey[1]
+
     
-    dydt = alpha * x - beta * x * y
-    dxdt = -gamma * y + delta * x * y
     
-    return dydt, dxdt
+    dydt = [alpha * x - beta * x * y, -gamma * y + delta * x * y]
+    
+    return dydt
     
 
 def sim_annealing(parameters, y0, t, pred, prey):
@@ -161,66 +192,44 @@ def sim_annealing(parameters, y0, t, pred, prey):
         https://medium.com/swlh/how-to-implement-simulated-annealing-algorithm-in-python-ab196c2f56a0
         
     """
-    init_temp =100
-    final_temp = 0.1
-    alpha = .05
+    init_temp = 100
+    final_temp = 0.01
+    alpha = 0.01
     
-    #parameters = [0.1,0.1,0.1,0.1]
     current_temp = init_temp
+    y0 = [pred[0], prey[0]]
     
-    solution = parameters.copy()
+
+    current_state = parameters
+    solution = current_state
+    
+    n = 0
+    
     while current_temp > final_temp:
         #generate a set of neigbbors
         neighbors = get_neighbors(solution)
-
-        neighbor = random.choice(neighbors)
         
+        
+        neighbor = random.choice(neighbors)
         #print(neighbor)
+        
         cost_diff = get_cost(solution, y0, t, pred, prey) - get_cost(neighbor, y0, t, pred, prey)
-
-        if cost_diff >= 0:
-            solution = neighbor.copy()
+  
+        
+        if cost_diff > 0:
+            solution = neighbor
         else: 
-            if random.uniform(0,1) < math.exp(-(cost_diff / current_temp)):
+            if random.uniform(0,1) < math.exp(cost_diff / current_temp):
+                solution = neighbor
                 
-                solution = neighbor.copy()
+                
         current_temp -= alpha
         
-    print(solution)
     return solution, get_cost(neighbor, y0, t, pred, prey)
                 
         
-def hill_climbing(parameters, y0, t, pred, prey):
-    
-    """
-    find neighbor, check if it is better, if it's better, go there repeat, otherwise stop
-    """
-    new_param = parameters.copy()
-    cost = get_cost(new_param)
-    neighbor_cost = 0
-    change = 0.05
-    
-    while (cost > neighbor_cost) :
-        
-        neighbor_1 = new_param.copy()
-        neighbor_2 = new_param.copy()
-        for i in range(4):
-            neighbor_1[i] = neighbor_1[i] + random.uniform(-change,change)
-            neighbor_2[i] = neighbor_2[i] + random.uniform(-change,change)
             
-        neighbor_cost_1 = get_cost(neighbor_1)
-        neighbor_cost_2 = get_cost(neighbor_2)
     
-    if neighbor_cost_1 < neighbor_cost_2:
-        new_params = neighbor_1
-        neighbor_cost = neighbor_cost_1
-        
-    else:
-        new_param = neighbor_2
-        neighbor_cost = neighbor_cost_2
-    
-    
-    return neighbor
 
 if __name__ == '__main__':
     main()
