@@ -62,57 +62,74 @@ def main():
     delta = float(1.0)
     
     print('y0', y0)
-    best_list = []
-    for i in range(n_sim):
-        parameters = []
-        for i in range(4):
-            parameters.append(random.uniform(0,2))
-        print(f"parameters: {parameters}")
-        
-            
-        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, "mse")
-        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, "rmse")
-#        parameters = hill_climbing(parameters,y0, t, pred, prey)
-        best_list.append(parameters)
-    
-        sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
-        
-        
-        preys = sol[:,1]
-        preds = sol[:,0]
-    
-        
-        
-        plt.plot(t, preds, label ='predator')
-        plt.plot(t, preys, label = 'prey')
-        plt.plot(t, pred, "x", label="actual predator", alpha = 0.5)
-        plt.plot(t, prey, "o", label="actual prey", alpha = 0.5)
-        plt.legend()
-        plt.show()
-        print(parameters)
-    print(best_list)
+#    best_list = []
+#    for i in range(n_sim):
+#        parameters = []
+#        for i in range(4):
+#            parameters.append(random.uniform(0,2))
+#        print(f"parameters: {parameters}")
+#        
+#            
+#        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, "mse")
+#        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, "rmse")
+##        parameters = hill_climbing(parameters,y0, t, pred, prey)
+#        best_list.append(parameters)
+#    
+#        sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
+#        
+#        
+#        preys = sol[:,1]
+#        preds = sol[:,0]
+#    
+#        
+#        
+#        plt.plot(t, preds, label ='predator')
+#        plt.plot(t, preys, label = 'prey')
+#        plt.plot(t, pred, "x", label="actual predator", alpha = 0.5)
+#        plt.plot(t, prey, "o", label="actual prey", alpha = 0.5)
+#        plt.legend()
+#        plt.show()
+#        print(parameters)
+#    print(best_list)
     
     parameters = []
     for i in range(4):
         parameters.append(random.uniform(0,2))
     print(f"parameters: {parameters}")
-    
-    parameters, sol2, del_points = remove_points_sim_an(parameters, y0, t, pred, prey, 30)
+    where_from_point_reduction = "pred"
+    parameters, sol2, del_points = remove_points_sim_an(parameters, y0, t, pred, prey, 30, where_from_point_reduction)
     sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
-
-    t_removed = t 
-    val_points = []
-    val_t_points = []
-    for point in del_points:
-        val_points.append(prey[point])
-        val_t_points.append(t_removed[point])
     
-    prey = list(prey)
-    t_removed = list(t_removed)
-    for val in val_points:
-        prey.remove(val)
-    for val in val_t_points:
-        t_removed.remove(val)
+    t_removed_prey = t 
+    t_removed_pred = t
+    
+    if where_from_point_reduction == "prey":
+        val_points = []
+        val_t_points = []
+        for point in del_points:
+            val_points.append(prey[point])
+            val_t_points.append(t_removed_prey[point])
+        
+        prey = list(prey)
+        t_removed_prey = list(t_removed_prey)
+        for val in val_points:
+            prey.remove(val)
+        for val in val_t_points:
+            t_removed_prey.remove(val)
+            
+    elif where_from_point_reduction == "pred":
+        val_points = []
+        val_t_points = []
+        for point in del_points:
+            val_points.append(pred[point])
+            val_t_points.append(t_removed_pred[point])
+        
+        pred = list(pred)
+        t_removed_pred = list(t_removed_pred)
+        for val in val_points:
+            pred.remove(val)
+        for val in val_t_points:
+            t_removed_pred.remove(val)
         
     
     preys = sol[:,1]
@@ -122,8 +139,8 @@ def main():
     
     plt.plot(t, preds, label ='predator')
     plt.plot(t, preys, label = 'prey')
-    plt.plot(t, pred, "x", label="actual predator", alpha = 0.5)
-    plt.plot(t_removed, prey, "o", label="actual prey", alpha = 0.5)
+    plt.plot(t_removed_pred, pred, "x", label="actual predator", alpha = 0.5)
+    plt.plot(t_removed_prey, prey, "o", label="actual prey", alpha = 0.5)
     plt.legend()
     plt.show()
     print(parameters)
@@ -334,7 +351,7 @@ def hill_climbing(parameters,y0, t, pred, prey):
             break
     return new_param
 
-def get_cost_removed(parameters, y0, t, pred, prey, list_removed_points):
+def get_cost_removed(parameters, y0, t, pred, prey, list_removed_points, source_of_removal):
     """
     Used pend and Odeint to find a list of values of Preys and Predators with the given parameters
     Parameters
@@ -363,8 +380,10 @@ def get_cost_removed(parameters, y0, t, pred, prey, list_removed_points):
     plt.legend()
     plt.show()
     """            
-
-    preys = np.delete(preys, list_removed_points)
+    if source_of_removal == "prey":
+        preys = np.delete(preys, list_removed_points)
+    elif source_of_removal == "pred":
+        preds = np.delete(preds, list_removed_points)
         
     
     mse1 =  (sum(abs(pred - preds)))
@@ -373,15 +392,15 @@ def get_cost_removed(parameters, y0, t, pred, prey, list_removed_points):
     return sqrt(mse1 + mse2) #newly added since last run 2.47pm 8dec
 
 
-def remove_points_sim_an(parameters, y0, t, pred, prey, data_points_removed):
+def remove_points_sim_an(parameters, y0, t, pred, prey, data_points_removed, source_of_removal):
     """
     Algorithm of simmulated annealing according to this example:
         https://medium.com/swlh/how-to-implement-simulated-annealing-algorithm-in-python-ab196c2f56a0
         
     """
-    init_temp = 100
+    init_temp = 1
     final_temp = 0.01
-    alpha = 0.999
+    alpha = 0.5
     
     preds_removed = list(pred.copy())
     preys_removed = list(prey.copy())
@@ -389,13 +408,21 @@ def remove_points_sim_an(parameters, y0, t, pred, prey, data_points_removed):
     current_temp = init_temp
     y0 = [pred[0], prey[0]]
     
-    points = random.sample(range(100), 10)
+    points = random.sample(range(100), data_points_removed)
     val_points = []
-    for point in points:
-        val_points.append(preys_removed[point])
-    
-    for val in val_points:
-        preys_removed.remove(val)
+    if source_of_removal == "prey": #remove of prey
+        for point in points:
+            val_points.append(preys_removed[point])
+        
+        for val in val_points:
+            preys_removed.remove(val)
+            
+    elif source_of_removal == "pred": #remove of pred
+        for point in points:
+            val_points.append(preds_removed[point])
+        
+        for val in val_points:
+            preds_removed.remove(val)
 
     current_state = parameters
     solution = current_state
@@ -410,7 +437,7 @@ def remove_points_sim_an(parameters, y0, t, pred, prey, data_points_removed):
         
         #print(neighbor)
         
-        cost_diff = get_cost_removed(solution, y0, t, preds_removed, preys_removed, points) - get_cost_removed(neighbor, y0, t, preds_removed, preys_removed, points)
+        cost_diff = get_cost_removed(solution, y0, t, preds_removed, preys_removed, points, source_of_removal) - get_cost_removed(neighbor, y0, t, preds_removed, preys_removed, points, source_of_removal)
   
         
         if cost_diff > 0:
@@ -440,7 +467,7 @@ def remove_points_sim_an(parameters, y0, t, pred, prey, data_points_removed):
 #            plt.legend()
 #            plt.show()
     print(counter)
-    return solution, get_cost(neighbor, y0, t, pred, prey), points
+    return solution, get_cost_removed(solution, y0, t, preds_removed, preys_removed, points, source_of_removal), points
     
     
 
