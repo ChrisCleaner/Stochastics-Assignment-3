@@ -21,20 +21,19 @@ import os
 from math import sqrt
 import scipy.stats as stats
 
+import csv
 
 import math
 import time
 
 n_sim = 50
 
-init_temp = 100
+init_temp = 50
 final_temp = 0.001
-alpha = 0.7
-    
+alpha = 0.6
 
-it = []
-score = []
-meth = []
+
+
 
 
 best_score = 100
@@ -44,6 +43,10 @@ best_it = 0
 
 
 loc = os.getcwd().replace("\\","/") + "/predator-prey-data.csv"
+loc2 =  os.getcwd().replace("\\","/") + "/predator-prey-results.csv"
+
+
+
 df = pd.read_csv(loc)
     
 pred = (df['x'])
@@ -53,6 +56,13 @@ prey = (df['y'])
     
 
 def main():
+    
+    with open(loc2, 'w', newline='') as file:
+        writer = csv.writer(file)
+    
+        writer.writerow(["It", "Score", "Method"])
+
+    
     df = pd.read_csv(loc)
     
     pred = (df['x'])
@@ -85,6 +95,10 @@ def main():
     print('y0', y0)
     best_list = []
     for i in range(n_sim):
+        it = []
+        score = []
+        meth = []
+        
         random.seed(i)
         parameters = []
         for i in range(4):
@@ -93,14 +107,30 @@ def main():
         
 
         start = time.time()
-
-        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, 'mse')
+  
+        parameters, sol2,  it, score, meth= sim_annealing(parameters, y0, t, pred, prey, 'mse', it, score, meth)
         end = time.time()
-        #print('elapsed time', end - start)
-        parameters, sol2 = sim_annealing(parameters, y0, t, pred, prey, 'rmse')
+        print('elapsed time', end - start)
+        parameters, sol2,  it, score, meth = sim_annealing(parameters, y0, t, pred, prey, 'rmse', it, score, meth)
         
+        dat = [it, score, meth]
+        data = pd.DataFrame(np.transpose(dat))
+        
+        
+        
+       
+        
+        with open(loc2,'a', newline="\n") as fd:
+            for i in range(len(data)):
+               writer = csv.writer(fd)
+               writer.writerow((list(data.iloc[i]))) 
+                
+         
+            
+
+
         #parameters = hill_climbing(parameters,y0, t, pred, prey)
-        best_list.append(parameters)
+        #best_list.append(parameters)
     
         sol = odeint(pend, y0, t, args=(parameters[0], parameters[1], parameters[2], parameters[3]))
         
@@ -123,17 +153,10 @@ def main():
     #print('iterations', it)
     #print('score', score)
     
-    d = {'it': it, 'score': score, 'method': meth}
-    df = pd.DataFrame(data=d)
-    
-  
-    
-    sns.lineplot(data=df, x="it", y="score", hue = 'method')
-    plt.show()
-    
+
 
     
-    
+    """
     its = (len(it))/(n_sim)/2
     print(its)
     
@@ -151,9 +174,12 @@ def main():
     
     print(list(newdf2['score']))
     
-    
+    print('best results')
     print(best_score, best_parms, best_method, best_it)
-   
+    """
+    
+    print('best results')
+    print(best_score, best_parms, best_method, best_it)
     
 
 def get_cost(parameters, y0, t, pred, prey, method):
@@ -249,7 +275,7 @@ def pend(pred_prey,t, alpha, beta, gamma, delta):
     return dydt
     
 
-def sim_annealing(parameters, y0, t, pred, prey, method):
+def sim_annealing(parameters, y0, t, pred, prey, method, it, score, meth):
     """
     Algorithm of simmulated annealing according to this example:
         https://medium.com/swlh/how-to-implement-simulated-annealing-algorithm-in-python-ab196c2f56a0
@@ -266,7 +292,7 @@ def sim_annealing(parameters, y0, t, pred, prey, method):
     solution = current_state
     counter = 0
     
-    
+
     while current_temp > final_temp:
         #generate a set of neigbbors
         neighbor = get_neighbors(solution)
@@ -274,6 +300,8 @@ def sim_annealing(parameters, y0, t, pred, prey, method):
         
         
         #print(neighbor)
+        
+        
         
         sol_cost = get_cost(solution, y0, t, pred, prey, method)
         neigh_cost =  get_cost(neighbor, y0, t, pred, prey, method)
@@ -324,7 +352,9 @@ def sim_annealing(parameters, y0, t, pred, prey, method):
 #            plt.legend()
 #            plt.show()
     print()  
-    return solution, get_cost(solution, y0, t, pred, prey, method)
+    data = [it, score, meth]
+    #df = pd.DataFrame(data=d)
+    return solution, get_cost(solution, y0, t, pred, prey, method), it, score, meth
 
 def create_eight_neighbors(parameters, scale):
     neighbors = []
