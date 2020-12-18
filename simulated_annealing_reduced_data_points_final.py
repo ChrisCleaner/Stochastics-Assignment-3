@@ -64,7 +64,7 @@ def main():
     best_list = []
     for var in ["pred", "prey"]:
         for remove_points in range(10,100,10):
-            for k in range(1):
+            for k in range(n_sim):
                 parameters = []
                 for i in range(4):
                     parameters.append(1)
